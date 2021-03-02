@@ -1,6 +1,7 @@
 'use strict';
 
 var async = require('async');
+const { Console } = require('console');
 var https = require('https');
 var serviceUtill = require('../common/service-utill');
 
@@ -9,15 +10,17 @@ const token = "eyJhbGciOiJSUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJEUEUiLCJzdWIiOiJC
 
 exports.execute = (req, res) => {
     console.log('backend-flow is started...');
+    var headers = req.headers;
+    headers.Authorization = 'Bearer ' + token;
     async.parallel({
         backend1: (callback) => {
-            serviceUtill.httpsget(hostname, '/backend1', { Authorization: 'Bearer ' + token }, req, res, callback)
+            serviceUtill.httpget(hostname, '/backend1', headers, req, res, callback)
         },
         backend2: (callback) => {
-            serviceUtill.httpsget(hostname, '/backend2', { Authorization: 'Bearer ' + token }, req, res, callback)
+            serviceUtill.httpget(hostname, '/backend2', headers, req, res, callback)
         },
         backend3: (callback) => {
-            serviceUtill.httpsget(hostname, '/backend3', { Authorization: 'Bearer ' + token }, req, res, callback)
+            serviceUtill.httpget(hostname, '/backend3', headers, req, res, callback)
         }
     }, function (err, results) {
         res.writeHead(200, { "Content-Type": "application/json" });
@@ -25,24 +28,39 @@ exports.execute = (req, res) => {
         // backend1 response processing
         console.log('/backend1 response...');
         console.log(results.backend1);
-        combinedResponse.javaVersion = results.backend1.java.javaVersion;
-        combinedResponse.operatingsystem = results.backend1.os;
+        if (typeof results.backend1.java == 'undefined') {
+            console.log("Skipped /backend1 fields due to service non-availability");
+        } else {
+            combinedResponse.javaVersion = results.backend1.java.javaVersion;
+            combinedResponse.operatingsystem = results.backend1.os;
+        }
+
         // backend2 response processing
         console.log('/backend2 response...');
         console.log(results.backend2);
-        combinedResponse.freeMemory = results.backend2.freeMemory
+        if (typeof results.backend2.freeMemory == 'undefined') {
+            console.log("Skipped /backend1 fields due to service non-availability");
+        } else {
+            combinedResponse.freeMemory = results.backend2.freeMemory
+        }
+
         // backend3 response processing
         console.log('/backend3 response...');
         console.log(results.backend3);
-        var date = new Object()
-        date.dayOfMonth = results.backend3.timedata.dayOfMonth;
-        date.hour = results.backend3.timedata.hour;
-        date.minute = results.backend3.timedata.minute;
-        date.month = results.backend3.timedata.month;
-        date.second = results.backend3.timedata.second;
-        date.year = results.backend3.timedata.year;
-        combinedResponse.date = date;
-        combinedResponse.process = results.backend3.processdata.process;
+        if (typeof results.backend3.timedata == 'undefined') {
+            console.log("Skipped /backend1 fields due to service non-availability");
+        } else {
+            var date = new Object()
+            date.dayOfMonth = results.backend3.timedata.dayOfMonth;
+            date.hour = results.backend3.timedata.hour;
+            date.minute = results.backend3.timedata.minute;
+            date.month = results.backend3.timedata.month;
+            date.second = results.backend3.timedata.second;
+            date.year = results.backend3.timedata.year;
+            combinedResponse.date = date;
+            combinedResponse.process = results.backend3.processdata.process;
+        }
+
         res.end(JSON.stringify(combinedResponse));
     });
 };
